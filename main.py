@@ -21,9 +21,18 @@ PROMPT_TEMPLATE = Template(
 
 $text
 
-Return only the corrected text, don't include a preamble.
+Return just the corrected text, don't include a preamble. 
 """
 )
+
+PROMPT_TEMPLATE_TRANSLATE_ENG_TO_FR = Template(
+    """Translate the following text from English to French. Use a formal tone and avoid using slang or contractions.:
+
+$text
+
+Return the original text in English, line break and then translated text in French."""
+)
+
 
 
 def fix_text(text):
@@ -78,8 +87,48 @@ def fix_selection():
         controller.tap("v")
 
 
+def translate_text(text):
+    prompt = PROMPT_TEMPLATE_TRANSLATE_ENG_TO_FR.substitute(text=text)
+    response = httpx.post(
+        OLLAMA_ENDPOINT,
+        json={"prompt": prompt, **OLLAMA_CONFIG},
+        headers={"Content-Type": "application/json"},
+        timeout=10,
+    )
+    if response.status_code != 200:
+        print("Error", response.status_code)
+        return None
+    return response.json()["response"].strip()
+
+
+def translate_selection():
+    # 1. Copy selection to clipboard
+    with controller.pressed(Key.cmd):
+        controller.tap("c")
+
+    # 2. Get the clipboard string
+    time.sleep(0.1)
+    text = pyperclip.paste()
+
+    # 3. Fix string
+    if not text:
+        return
+    translated_text = translate_text(text)
+    if not translated_text:
+        return
+
+    # 4. Paste the fixed string to the clipboard
+    pyperclip.copy(translated_text)
+    time.sleep(0.1)
+
+    # 5. Paste the clipboard and replace the selected text
+    with controller.pressed(Key.cmd):
+        controller.tap("v")
+
+
 def on_f9():
-    fix_current_line()
+    # fix_current_line()
+    translate_selection()
 
 
 def on_f10():
